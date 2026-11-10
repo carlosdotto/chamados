@@ -37,18 +37,26 @@ public sealed class RepositorioChamadosEmMemoria(
         return Task.CompletedTask;
     }
 
-    public Task AtualizarAsync(Chamado chamado, CancellationToken cancellationToken = default)
+    public Task<Chamado> AlterarAsync(
+        Guid id,
+        Action<Chamado> alteracao,
+        CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(chamado);
+        ArgumentNullException.ThrowIfNull(alteracao);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!_chamados.ContainsKey(chamado.Id))
+        lock (_chamados)
         {
-            throw new ChamadoNaoEncontradoException(chamado.Id);
-        }
+            cancellationToken.ThrowIfCancellationRequested();
 
-        _chamados[chamado.Id] = chamado;
-        return Task.CompletedTask;
+            if (!_chamados.TryGetValue(id, out var chamado))
+            {
+                throw new ChamadoNaoEncontradoException(id);
+            }
+
+            alteracao(chamado);
+            return Task.FromResult(chamado);
+        }
     }
 
     private Task SimularLatenciaAsync(CancellationToken cancellationToken)

@@ -12,5 +12,5 @@ public interface IChamadoRepositorio
 
     Task AdicionarAsync(Chamado chamado, CancellationToken cancellationToken = default);
 
-    Task AtualizarAsync(Chamado chamado, CancellationToken cancellationToken = default);
+    Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken = default);
 }

@@ -1,50 +1,55 @@
-@baseUrl = http://localhost:5123
-@chamadoId = substitua-pelo-guid-retornado-em-GET-chamados
+# Requisições da API JSON. As páginas (formulários) são testadas no navegador.
+@base = http://localhost:5080
 
-### Chamado de exemplo do Módulo 1
-GET {{baseUrl}}/chamados/exemplo
+### Lista todos, ordenados por prioridade
+GET {{base}}/api/chamados
 
-### Todos os chamados
-GET {{baseUrl}}/chamados
-
-### Filtrar por status
-GET {{baseUrl}}/chamados?status=EmAtendimento
-
-### Filtrar por prioridade e texto na descrição
-GET {{baseUrl}}/chamados?prioridadeMinima=Alta&texto=SA
+### Filtros combinados
+GET {{base}}/api/chamados?status=Aberto&prioridadeMinima=Alta
 
 ### Estatísticas
-GET {{baseUrl}}/chamados/estatisticas
+GET {{base}}/api/chamados/estatisticas
 
-### Buscar um chamado (substitua o GUID pelo retornado em GET /chamados)
-GET {{baseUrl}}/chamados/{{chamadoId}}
-
-### Iniciar atendimento (use o ID de um chamado Aberto)
-POST {{baseUrl}}/chamados/{{chamadoId}}/atendimento
+### Abre um chamado pela API (o mesmo ChamadoServico do formulário)
+POST {{base}}/api/chamados
 Content-Type: application/json
 
 {
-  "responsavel": "Equipe de manutenção"
+  "titulo": "Aberto pela API",
+  "prioridade": "Alta"
 }
 
-### Resolver um chamado em atendimento
-POST {{baseUrl}}/chamados/{{chamadoId}}/resolucao
+### Prioridade inexistente: o domínio recusa e o filtro responde 400 (Problem Details)
+POST {{base}}/api/chamados
 Content-Type: application/json
 
 {
-  "solucao": "Peça substituída"
+  "titulo": "Prioridade inválida",
+  "prioridade": 99
 }
 
-### Cancelar um chamado aberto ou em atendimento
-POST {{baseUrl}}/chamados/{{chamadoId}}/cancelamento
+### Inicia atendimento: copie um Id com status Aberto da listagem
+@id = 00000000-0000-0000-0000-000000000000
+POST {{base}}/api/chamados/{{id}}/atendimento
+Content-Type: application/json
+
+{
+  "responsavel": "Elétrica"
+}
+
+### Resolve o chamado em atendimento
+POST {{base}}/api/chamados/{{id}}/resolucao
+Content-Type: application/json
+
+{
+  "solucao": "Conexão elétrica reparada"
+}
+
+### Cancela outro chamado ainda aberto: copie um Id diferente com status Aberto
+@idParaCancelar = 00000000-0000-0000-0000-000000000000
+POST {{base}}/api/chamados/{{idParaCancelar}}/cancelamento
 Content-Type: application/json
 
 {
   "motivo": "Solicitação duplicada"
 }
-
-### ID inexistente (404)
-GET {{baseUrl}}/chamados/00000000-0000-0000-0000-000000000000
-
-### Valor de enum inválido (400)
-GET {{baseUrl}}/chamados?status=Inexistente

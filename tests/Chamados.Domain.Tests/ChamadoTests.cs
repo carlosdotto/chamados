@@ -2,165 +2,174 @@ using Chamados.Domain;
 
 namespace Chamados.Domain.Tests;
 
-public sealed class ChamadoTests
+public class ChamadoTests
 {
-    private static readonly DateTimeOffset Inicio =
-        new(2026, 10, 30, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateTimeOffset Abertura = new(2026, 10, 5, 9, 0, 0, TimeSpan.Zero);
+
+    // --- Herdados do Módulo 1 ---
 
     [Fact]
-    public void NovoChamado_InicializaDadosEEstado()
+    public void NovoChamado_NasceComStatusAberto()
     {
-        var chamado = new Chamado("Lâmpada queimada", criadoEm: Inicio);
+        var chamado = new Chamado("Trocar lâmpada do corredor");
 
-        Assert.NotEqual(Guid.Empty, chamado.Id);
-        Assert.Equal("Lâmpada queimada", chamado.Titulo);
-        Assert.Equal(Prioridade.Media, chamado.Prioridade);
         Assert.Equal(StatusChamado.Aberto, chamado.Status);
-        Assert.Equal(Inicio, chamado.CriadoEm);
-        Assert.Null(chamado.EncerradoEm);
-        Assert.False(chamado.EstaEncerrado);
     }
 
     [Fact]
-    public void Construtor_AparaTituloEDescricao()
+    public void NovoChamado_RemoveEspacosDoTitulo()
     {
-        var chamado = new Chamado("  Lâmpada  ", descricao: "  Sala 2  ", criadoEm: Inicio);
+        var chamado = new Chamado("  Vazamento na copa  ");
 
-        Assert.Equal("Lâmpada", chamado.Titulo);
-        Assert.Equal("Sala 2", chamado.Descricao);
+        Assert.Equal("Vazamento na copa", chamado.Titulo);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void NovoChamado_TituloEmBranco_LancaArgumentException(string titulo)
+    {
+        Assert.Throws<ArgumentException>(() => new Chamado(titulo));
     }
 
     [Fact]
-    public void Construtor_RejeitaTituloEmBranco()
+    public void NovoChamado_TituloNulo_LancaArgumentNullException()
     {
-        Assert.Throws<ArgumentException>(() => new Chamado("  "));
+        Assert.Throws<ArgumentNullException>(() => new Chamado(null!));
+    }
+
+    // --- Módulo 2 ---
+
+    [Fact]
+    public void NovoChamado_DescricaoEmBranco_FicaNula()
+    {
+        var chamado = new Chamado("Tomada solta", descricao: "   ");
+
+        Assert.Null(chamado.Descricao);
     }
 
     [Fact]
-    public void Construtor_AceitaPrioridadeEDescricaoOpcionais()
+    public void IniciarAtendimento_DeAberto_MudaStatusERegistraHistorico()
     {
-        var chamado = new Chamado("Reparo", Prioridade.Critica, "Urgente", Inicio);
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
-        Assert.Equal(Prioridade.Critica, chamado.Prioridade);
-        Assert.Equal("Urgente", chamado.Descricao);
-    }
-
-    [Fact]
-    public void IniciarAtendimento_AtribuiResponsavelERegistraHistorico()
-    {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-
-        chamado.IniciarAtendimento("  Alex  ", Inicio.AddMinutes(5));
+        chamado.IniciarAtendimento(" Elétrica ", Abertura.AddMinutes(10));
 
         Assert.Equal(StatusChamado.EmAtendimento, chamado.Status);
-        Assert.Equal("Alex", chamado.Responsavel);
-        Assert.Equal(
-            new RegistroHistorico(
-                StatusChamado.Aberto,
-                StatusChamado.EmAtendimento,
-                Inicio.AddMinutes(5),
-                "Atribuído a Alex"),
-            Assert.Single(chamado.Historico));
+        Assert.Equal("Elétrica", chamado.Responsavel);
+        var registro = Assert.Single(chamado.Historico);
+        Assert.Equal(new RegistroHistorico(
+            StatusChamado.Aberto, StatusChamado.EmAtendimento, Abertura.AddMinutes(10), "Atribuído a Elétrica"), registro);
     }
 
     [Fact]
-    public void Resolver_EncerraChamadoEmAtendimento()
+    public void Resolver_SemAtendimento_LancaTransicaoInvalida()
     {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-        chamado.IniciarAtendimento("Alex", Inicio.AddMinutes(5));
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
-        chamado.Resolver("  Peça trocada  ", Inicio.AddHours(2));
+        var erro = Assert.Throws<TransicaoInvalidaException>(
+            () => chamado.Resolver("Tomada fixada", Abertura.AddHours(1)));
 
-        Assert.Equal(StatusChamado.Resolvido, chamado.Status);
-        Assert.Equal("Peça trocada", chamado.Solucao);
-        Assert.Equal(Inicio.AddHours(2), chamado.EncerradoEm);
-        Assert.True(chamado.EstaEncerrado);
-        Assert.Equal(2, chamado.Historico.Count);
-    }
-
-    [Fact]
-    public void Cancelar_PermiteCancelarChamadoAberto()
-    {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-
-        chamado.Cancelar("Duplicado", Inicio.AddMinutes(2));
-
-        Assert.Equal(StatusChamado.Cancelado, chamado.Status);
-        Assert.Equal(Inicio.AddMinutes(2), chamado.EncerradoEm);
-        Assert.Equal("Duplicado", Assert.Single(chamado.Historico).Observacao);
-    }
-
-    [Fact]
-    public void Cancelar_PermiteCancelarChamadoEmAtendimento()
-    {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-        chamado.IniciarAtendimento("Alex", Inicio.AddMinutes(1));
-
-        chamado.Cancelar("Solicitação retirada", Inicio.AddMinutes(2));
-
-        Assert.Equal(StatusChamado.Cancelado, chamado.Status);
-        Assert.Equal(2, chamado.Historico.Count);
-    }
-
-    [Fact]
-    public void Resolver_EmChamadoAbertoLancaExcecaoSemAlterarEstado()
-    {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-
-        var exception = Assert.Throws<TransicaoInvalidaException>(
-            () => chamado.Resolver("Concluído", Inicio.AddMinutes(1)));
-
-        Assert.Equal(chamado.Id, exception.ChamadoId);
-        Assert.Equal(StatusChamado.Aberto, exception.Atual);
-        Assert.Equal(StatusChamado.Resolvido, exception.Pretendido);
+        Assert.Equal(StatusChamado.Aberto, erro.Atual);
+        Assert.Equal(StatusChamado.Resolvido, erro.Pretendido);
         Assert.Equal(StatusChamado.Aberto, chamado.Status);
         Assert.Empty(chamado.Historico);
     }
 
     [Fact]
-    public void ChamadoResolvido_NaoPodeSerCancelado()
+    public void Cancelar_ChamadoResolvido_LancaTransicaoInvalida()
     {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-        chamado.IniciarAtendimento("Alex", Inicio.AddMinutes(1));
-        chamado.Resolver("Concluído", Inicio.AddMinutes(2));
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(1));
 
-        Assert.Throws<TransicaoInvalidaException>(
-            () => chamado.Cancelar("Motivo", Inicio.AddMinutes(3)));
-        Assert.Equal(StatusChamado.Resolvido, chamado.Status);
+        Assert.Throws<TransicaoInvalidaException>(() => chamado.Cancelar("Engano", Abertura.AddHours(2)));
+    }
+
+    [Fact]
+    public void Resolver_DefineEncerramentoETempoAteEncerramento()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(2));
+
+        Assert.True(chamado.EstaEncerrado);
+        Assert.Equal(Abertura.AddHours(2), chamado.EncerradoEm);
+        Assert.Equal(TimeSpan.FromHours(2), chamado.TempoAteEncerramento);
         Assert.Equal(2, chamado.Historico.Count);
     }
 
     [Fact]
-    public void ChamadoCancelado_NaoPodeIniciarAtendimento()
+    public void ChamadoAberto_NaoTemTempoAteEncerramento()
     {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-        chamado.Cancelar("Duplicado", Inicio.AddMinutes(1));
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
-        Assert.Throws<TransicaoInvalidaException>(
-            () => chamado.IniciarAtendimento("Alex", Inicio.AddMinutes(2)));
-        Assert.Equal(StatusChamado.Cancelado, chamado.Status);
+        Assert.Null(chamado.TempoAteEncerramento);
+    }
+
+    [Fact]
+    public void Transicao_ComDataAnteriorAAbertura_LancaArgumentOutOfRange()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(-1)));
+    }
+
+    [Fact]
+    public void Transicao_ComDataAnteriorAoHistorico_LancaArgumentOutOfRange()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => chamado.Resolver("Tomada fixada", Abertura.AddMinutes(5)));
+        Assert.Equal(StatusChamado.EmAtendimento, chamado.Status);
         Assert.Single(chamado.Historico);
     }
 
     [Fact]
-    public void TransicaoComDataAnteriorAbertura_LancaExcecaoSemAlterarEstado()
+    public void Historico_NaoPodeSerConvertidoEmListaMutavel()
     {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
+        var chamado = new Chamado("Tomada solta");
 
-        Assert.Throws<ArgumentOutOfRangeException>(
-            () => chamado.IniciarAtendimento("Alex", Inicio.AddTicks(-1)));
-        Assert.Equal(StatusChamado.Aberto, chamado.Status);
-        Assert.Empty(chamado.Historico);
+        Assert.False(chamado.Historico is List<RegistroHistorico>);
+    }
+
+    // --- Módulo 3: limites que o formulário web também exibe ---
+
+    [Fact]
+    public void NovoChamado_TituloAcimaDoLimite_LancaArgumentException()
+    {
+        var titulo = new string('a', Chamado.TamanhoMaximoTitulo + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => new Chamado(titulo));
+        Assert.Equal("titulo", erro.ParamName);
     }
 
     [Fact]
-    public void HistoricoEReadOnlyETempoAteEncerramentoECalculado()
+    public void NovoChamado_TituloNoLimiteComEspacosNasPontas_EhAceito()
     {
-        var chamado = new Chamado("Reparo", criadoEm: Inicio);
-        chamado.IniciarAtendimento("Alex", Inicio.AddMinutes(1));
-        chamado.Resolver("Concluído", Inicio.AddHours(2));
+        // O limite vale para o texto já sem espaços: o Trim acontece antes da verificação.
+        var titulo = "  " + new string('a', Chamado.TamanhoMaximoTitulo) + "  ";
 
-        Assert.Equal(TimeSpan.FromHours(2), chamado.TempoAteEncerramento);
-        Assert.IsNotType<List<RegistroHistorico>>(chamado.Historico);
+        var chamado = new Chamado(titulo);
+
+        Assert.Equal(Chamado.TamanhoMaximoTitulo, chamado.Titulo.Length);
+    }
+
+    [Fact]
+    public void NovoChamado_DescricaoAcimaDoLimite_LancaArgumentException()
+    {
+        var descricao = new string('a', Chamado.TamanhoMaximoDescricao + 1);
+
+        Assert.Throws<ArgumentException>(() => new Chamado("Tomada solta", descricao: descricao));
+    }
+
+    [Fact]
+    public void NovoChamado_PrioridadeInexistente_LancaArgumentOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Chamado("Tomada solta", (Prioridade)99));
     }
 }

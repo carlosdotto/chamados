@@ -14,7 +14,7 @@ dotnet run --project src/Chamados.Web
 dotnet test
 ```
 
-Em Development, a API inicia com cinco chamados de exemplo. Acesse `http://localhost:5123/chamados` ou use as requisições de [Chamados.Web.http](./src/Chamados.Web/Chamados.Web.http).
+Em Development, a aplicação inicia com cinco chamados de exemplo. Com o perfil `http`, acesse o painel em `http://localhost:5080/`, a lista em `http://localhost:5080/Chamados` ou crie um chamado em `http://localhost:5080/Chamados/Novo`. A API JSON fica sob `/api/chamados`; use as requisições de [Chamados.Web.http](./src/Chamados.Web/Chamados.Web.http).
 
 ## Decisões
 

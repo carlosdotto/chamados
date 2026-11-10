@@ -1,51 +1,32 @@
 namespace Chamados.Domain;
 
 /// <summary>
-/// Casos de uso dos chamados. Recebe o repositório e o relógio por injeção.
+/// Casos de uso dos chamados. Depende de abstrações recebidas por injeção:
+/// o repositório (onde guardar) e o relógio (que horas são).
 /// </summary>
 public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider relogio)
 {
-    public async Task<Chamado> AbrirAsync(
-        NovoChamado comando,
-        CancellationToken cancellationToken = default)
+    public async Task<Chamado> AbrirAsync(NovoChamado comando, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(comando);
 
-        var chamado = new Chamado(
-            comando.Titulo,
-            comando.Prioridade,
-            comando.Descricao,
-            relogio.GetUtcNow());
+        var chamado = new Chamado(comando.Titulo, comando.Prioridade, comando.Descricao, relogio.GetUtcNow());
         await repositorio.AdicionarAsync(chamado, cancellationToken);
         return chamado;
     }
 
-    public Task<Chamado> IniciarAtendimentoAsync(
-        Guid id,
-        string responsavel,
-        CancellationToken cancellationToken = default) =>
-        AlterarAsync(
-            id,
-            chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()),
-            cancellationToken);
+    /// <summary>Consulta um chamado. Devolve null quando o Id não existe.</summary>
+    public Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
+        => repositorio.ObterAsync(id, cancellationToken);
 
-    public Task<Chamado> ResolverAsync(
-        Guid id,
-        string solucao,
-        CancellationToken cancellationToken = default) =>
-        AlterarAsync(
-            id,
-            chamado => chamado.Resolver(solucao, relogio.GetUtcNow()),
-            cancellationToken);
+    public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, CancellationToken cancellationToken = default)
+        => AlterarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()), cancellationToken);
 
-    public Task<Chamado> CancelarAsync(
-        Guid id,
-        string motivo,
-        CancellationToken cancellationToken = default) =>
-        AlterarAsync(
-            id,
-            chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()),
-            cancellationToken);
+    public Task<Chamado> ResolverAsync(Guid id, string solucao, CancellationToken cancellationToken = default)
+        => AlterarAsync(id, chamado => chamado.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
+
+    public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
+        => AlterarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
 
     public async Task<IReadOnlyList<ResumoChamado>> ListarAsync(
         FiltroChamados filtro,
@@ -60,31 +41,29 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
             .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
             .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
                         || c.Titulo.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase)
-                        || (c.Descricao?.Contains(
-                            filtro.Texto,
-                            StringComparison.OrdinalIgnoreCase) ?? false))
+                        || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false))
             .OrderByDescending(c => c.Prioridade)
             .ThenBy(c => c.CriadoEm)
             .Select(ResumoChamado.De)
             .ToList();
     }
 
-    public async Task<EstatisticasChamados> ObterEstatisticasAsync(
-        CancellationToken cancellationToken = default)
+    public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
     {
         var chamados = await repositorio.ListarAsync(cancellationToken);
 
+        // Todos os status aparecem, mesmo com zero: parte do enum, não dos dados.
         var porStatus = Enum.GetValues<StatusChamado>()
             .ToDictionary(status => status, status => chamados.Count(c => c.Status == status));
 
+        // Só as prioridades presentes aparecem: GroupBy agrupa o que existe.
         var porPrioridade = chamados
             .GroupBy(c => c.Prioridade)
             .ToDictionary(grupo => grupo.Key, grupo => grupo.Count());
 
         var temposDeResolucao = chamados
             .Where(c => c.Status == StatusChamado.Resolvido)
-            .Select(c => c.TempoAteEncerramento)
-            .OfType<TimeSpan>()
+            .Select(c => c.TempoAteEncerramento!.Value)
             .ToList();
 
         TimeSpan? tempoMedio = temposDeResolucao.Count == 0
@@ -94,16 +73,6 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         return new EstatisticasChamados(chamados.Count, porStatus, porPrioridade, tempoMedio);
     }
 
-    private async Task<Chamado> AlterarAsync(
-        Guid id,
-        Action<Chamado> alteracao,
-        CancellationToken cancellationToken)
-    {
-        var chamado = await repositorio.ObterAsync(id, cancellationToken)
-            ?? throw new ChamadoNaoEncontradoException(id);
-
-        alteracao(chamado);
-        await repositorio.AtualizarAsync(chamado, cancellationToken);
-        return chamado;
-    }
+    private Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken)
+        => repositorio.AlterarAsync(id, alteracao, cancellationToken);
 }

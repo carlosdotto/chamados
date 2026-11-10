@@ -2,85 +2,39 @@ using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
 using Chamados.Domain;
 using Chamados.Web;
+using Chamados.Web.Api;
+using Chamados.Web.Configuracao;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddRazorPages();
+builder.Services.AddOptions<SimulacaoOptions>()
+    .BindConfiguration(SimulacaoOptions.Secao)
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IChamadoRepositorio>(services =>
     new RepositorioChamadosEmMemoria(
         services.GetRequiredService<TimeProvider>(),
-        TimeSpan.FromMilliseconds(builder.Configuration.GetValue("Simulacao:LatenciaMs", 0))));
+        TimeSpan.FromMilliseconds(services.GetRequiredService<IOptions<SimulacaoOptions>>().Value.LatenciaMs)));
 builder.Services.AddScoped<ChamadoServico>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
+app.UseStaticFiles();
+
 if (app.Environment.IsDevelopment())
 {
     await SementeDados.PopularAsync(app.Services);
 }
 
-app.MapGet("/", () => "Chamados.Web em execução");
 app.MapGet("/status", () => Enum.GetNames<StatusChamado>());
 app.MapGet("/chamados/exemplo", () => new Chamado("Trocar lâmpada do corredor"));
-
-app.MapGet("/chamados", async (
-    StatusChamado? status,
-    Prioridade? prioridadeMinima,
-    string? texto,
-    ChamadoServico servico,
-    ILogger<Program> logger,
-    CancellationToken cancellationToken) =>
-{
-    try
-    {
-        var filtro = new FiltroChamados(status, prioridadeMinima, texto);
-        return Results.Ok(await servico.ListarAsync(filtro, cancellationToken));
-    }
-    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-    {
-        logger.LogInformation("Listagem de chamados cancelada pelo cliente.");
-        return Results.Empty;
-    }
-});
-
-app.MapGet("/chamados/estatisticas", (
-    ChamadoServico servico,
-    CancellationToken cancellationToken) =>
-    servico.ObterEstatisticasAsync(cancellationToken));
-
-app.MapGet("/chamados/{id:guid}", async (
-    Guid id,
-    IChamadoRepositorio repositorio,
-    CancellationToken cancellationToken) =>
-    await repositorio.ObterAsync(id, cancellationToken) is { } chamado
-        ? Results.Ok(ResumoChamado.De(chamado))
-        : Results.NotFound());
-
-app.MapPost("/chamados/{id:guid}/atendimento", (
-    Guid id,
-    IniciarAtendimentoRequest requisicao,
-    ChamadoServico servico,
-    CancellationToken cancellationToken) =>
-    ExecutarTransicaoAsync(() =>
-        servico.IniciarAtendimentoAsync(id, requisicao.Responsavel, cancellationToken)));
-
-app.MapPost("/chamados/{id:guid}/resolucao", (
-    Guid id,
-    ResolverRequest requisicao,
-    ChamadoServico servico,
-    CancellationToken cancellationToken) =>
-    ExecutarTransicaoAsync(() =>
-        servico.ResolverAsync(id, requisicao.Solucao, cancellationToken)));
-
-app.MapPost("/chamados/{id:guid}/cancelamento", (
-    Guid id,
-    CancelarRequest requisicao,
-    ChamadoServico servico,
-    CancellationToken cancellationToken) =>
-    ExecutarTransicaoAsync(() =>
-        servico.CancelarAsync(id, requisicao.Motivo, cancellationToken)));
+app.MapApiChamados();
+app.MapRazorPages();
 
 if (app.Environment.IsDevelopment())
 {
@@ -92,32 +46,3 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
-
-static async Task<IResult> ExecutarTransicaoAsync(Func<Task<Chamado>> transicao)
-{
-    try
-    {
-        return Results.Ok(ResumoChamado.De(await transicao()));
-    }
-    catch (ChamadoNaoEncontradoException)
-    {
-        return Results.NotFound();
-    }
-    catch (TransicaoInvalidaException exception)
-    {
-        return Results.Conflict(new { erro = exception.Message });
-    }
-    catch (ArgumentException exception)
-    {
-        return Results.BadRequest(new { erro = exception.Message });
-    }
-}
-
-/// <summary>Dados para iniciar o atendimento de um chamado.</summary>
-public sealed record IniciarAtendimentoRequest(string Responsavel);
-
-/// <summary>Dados para registrar a solução de um chamado.</summary>
-public sealed record ResolverRequest(string Solucao);
-
-/// <summary>Dados para cancelar um chamado.</summary>
-public sealed record CancelarRequest(string Motivo);
