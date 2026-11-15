@@ -16,7 +16,6 @@
     </header>
 
     <main class="conteudo">
-        @* Mensagem de uma única leitura: gravada antes do redirect, lida aqui e descartada. *@
         @if (TempData["Mensagem"] is string mensagem)
         {
             <p class="aviso" role="status">@mensagem</p>
@@ -25,6 +24,10 @@
         @RenderBody()
     </main>
 
-    <footer class="rodape">Chamados · Módulo 3 · ASP.NET Core e Razor Pages</footer>
+    <footer class="rodape">Chamados · Módulo 4 · ASP.NET Core, Razor Pages e edição otimista</footer>
+
+    <script src="https://code.jquery.com/jquery-3.12.2.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"></script>
 </body>
 </html>

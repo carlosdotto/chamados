@@ -27,6 +27,8 @@
     <a asp-page="./Index">Limpar</a>
 </form>
 
+@await Component.InvokeAsync("ResumoLista")
+
 @if (Model.Chamados.Count == 0)
 {
     <p class="vazio">Nenhum chamado encontrado com esses filtros.</p>
@@ -35,7 +37,7 @@ else
 {
     <table class="tabela">
         <thead>
-            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
+            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th><th>Ações</th></tr>
         </thead>
         <tbody>
             @foreach (var chamado in Model.Chamados)
@@ -43,11 +45,30 @@ else
                 <tr>
                     <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
                     <td><span class="@chamado.Prioridade.ClasseSelo()">@chamado.Prioridade.Rotulo()</span></td>
-                    <td><span class="@chamado.Status.ClasseSelo()">@chamado.Status.Rotulo()</span></td>
+                    <td><status-badge status="@chamado.Status"></status-badge></td>
                     <td>@(chamado.Responsavel ?? "—")</td>
                     <td>@chamado.CriadoEm.DataHora()</td>
+                    <td><a asp-page="./Editar" asp-route-id="@chamado.Id">Editar</a></td>
                 </tr>
             }
         </tbody>
     </table>
+}
+
+@if (Model.TotalPaginas > 1)
+{
+    <nav class="paginacao" aria-label="Paginação">
+        @for (var pagina = 1; pagina <= Model.TotalPaginas; pagina++)
+        {
+            var paginaAtual = pagina == Model.PaginaAtual;
+            <a asp-page="./Index"
+               asp-route-status="@Model.Status"
+               asp-route-prioridadeMinima="@Model.PrioridadeMinima"
+               asp-route-texto="@Model.Texto"
+               asp-route-pagina="@pagina"
+               class="@(paginaAtual ? "atual" : null)">
+                @pagina
+            </a>
+        }
+    </nav>
 }

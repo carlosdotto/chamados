@@ -14,8 +14,24 @@ public sealed class ErroModel : PageModel
 {
     public string CodigoRequisicao { get; private set; } = string.Empty;
 
-    // OnGet e OnPost: a requisição que falhou pode ter sido um POST de formulário.
-    public void OnGet() => CodigoRequisicao = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+    public int? Codigo { get; private set; }
 
-    public void OnPost() => OnGet();
+    public string Mensagem { get; private set; } = "Houve um problema ao processar sua solicitação.";
+
+    public void OnGet(int? codigo)
+    {
+        Codigo = codigo;
+        if (Codigo is 404)
+        {
+            Mensagem = "A página ou recurso solicitado não foi encontrado.";
+        }
+        else if (Codigo is 500)
+        {
+            Mensagem = "O servidor encontrou um erro ao processar a solicitação.";
+        }
+
+        CodigoRequisicao = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+    }
+
+    public void OnPost(int? codigo) => OnGet(codigo);
 }

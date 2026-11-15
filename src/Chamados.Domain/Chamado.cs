@@ -7,8 +7,6 @@ namespace Chamados.Domain;
 /// </summary>
 public sealed class Chamado
 {
-    // Limites da regra de negócio. O formulário web reusa estas constantes
-    // nos atributos de validação: uma única fonte de verdade.
     public const int TamanhoMaximoTitulo = 120;
     public const int TamanhoMaximoDescricao = 2000;
 
@@ -20,40 +18,21 @@ public sealed class Chamado
         string? descricao = null,
         DateTimeOffset? criadoEm = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(titulo);
-
-        titulo = titulo.Trim();
-        descricao = string.IsNullOrWhiteSpace(descricao) ? null : descricao.Trim();
-
-        if (titulo.Length > TamanhoMaximoTitulo)
-        {
-            throw new ArgumentException($"O título deve ter no máximo {TamanhoMaximoTitulo} caracteres.", nameof(titulo));
-        }
-
-        if (descricao?.Length > TamanhoMaximoDescricao)
-        {
-            throw new ArgumentException($"A descrição deve ter no máximo {TamanhoMaximoDescricao} caracteres.", nameof(descricao));
-        }
-
-        // Um enum aceita qualquer inteiro: (Prioridade)99 compila e chega pelo formulário.
-        if (!Enum.IsDefined(prioridade))
-        {
-            throw new ArgumentOutOfRangeException(nameof(prioridade), prioridade, "Prioridade inexistente.");
-        }
-
-        Titulo = titulo;
-        Descricao = descricao;
-        Prioridade = prioridade;
+        Titulo = ValidarTitulo(titulo);
+        Descricao = ValidarDescricao(descricao);
+        Prioridade = ValidarPrioridade(prioridade);
         CriadoEm = criadoEm ?? DateTimeOffset.UtcNow;
     }
 
     public Guid Id { get; } = Guid.NewGuid();
 
-    public string Titulo { get; }
+    public string Titulo { get; private set; }
 
-    public string? Descricao { get; }
+    public string? Descricao { get; private set; }
 
-    public Prioridade Prioridade { get; }
+    public Prioridade Prioridade { get; private set; }
+
+    public int Versao { get; private set; } = 1;
 
     public StatusChamado Status { get; private set; } = StatusChamado.Aberto;
 
@@ -65,13 +44,28 @@ public sealed class Chamado
 
     public DateTimeOffset? EncerradoEm { get; private set; }
 
-    // AsReadOnly impede que quem recebe a lista faça cast para List<T> e a altere.
     public IReadOnlyList<RegistroHistorico> Historico => _historico.AsReadOnly();
 
     public bool EstaEncerrado => Status is StatusChamado.Resolvido or StatusChamado.Cancelado;
 
-    // DateTimeOffset? - DateTimeOffset resulta em TimeSpan? (nulo enquanto aberto).
     public TimeSpan? TempoAteEncerramento => EncerradoEm - CriadoEm;
+
+    public void Editar(string titulo, Prioridade prioridade, string? descricao)
+    {
+        if (EstaEncerrado)
+        {
+            throw new ChamadoEncerradoException(Id, Status);
+        }
+
+        var novoTitulo = ValidarTitulo(titulo);
+        var novaDescricao = ValidarDescricao(descricao);
+        var novaPrioridade = ValidarPrioridade(prioridade);
+
+        Titulo = novoTitulo;
+        Descricao = novaDescricao;
+        Prioridade = novaPrioridade;
+        Versao++;
+    }
 
     public void IniciarAtendimento(string responsavel, DateTimeOffset em)
     {
@@ -112,6 +106,41 @@ public sealed class Chamado
 
         _historico.Add(new RegistroHistorico(Status, novo, em, observacao));
         Status = novo;
+        Versao++;
+    }
+
+    private static string ValidarTitulo(string titulo)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(titulo);
+
+        titulo = titulo.Trim();
+        if (titulo.Length > TamanhoMaximoTitulo)
+        {
+            throw new ArgumentException($"O título deve ter no máximo {TamanhoMaximoTitulo} caracteres.", nameof(titulo));
+        }
+
+        return titulo;
+    }
+
+    private static string? ValidarDescricao(string? descricao)
+    {
+        descricao = string.IsNullOrWhiteSpace(descricao) ? null : descricao.Trim();
+        if (descricao?.Length > TamanhoMaximoDescricao)
+        {
+            throw new ArgumentException($"A descrição deve ter no máximo {TamanhoMaximoDescricao} caracteres.", nameof(descricao));
+        }
+
+        return descricao;
+    }
+
+    private static Prioridade ValidarPrioridade(Prioridade prioridade)
+    {
+        if (!Enum.IsDefined(prioridade))
+        {
+            throw new ArgumentOutOfRangeException(nameof(prioridade), prioridade, "Prioridade inexistente.");
+        }
+
+        return prioridade;
     }
 
     private static bool TransicaoPermitida(StatusChamado de, StatusChamado para) => (de, para) switch

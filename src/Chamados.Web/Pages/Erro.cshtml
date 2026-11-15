@@ -1,0 +1,15 @@
+@page
+@model ErroModel
+@{
+    ViewData["Title"] = Model.Codigo is null ? "Erro" : $"Erro {Model.Codigo}";
+}
+
+<h1>@ViewData["Title"]</h1>
+<p class="apoio">@Model.Mensagem</p>
+
+@if (Model.Codigo is not null)
+{
+    <p class="apoio">Código HTTP: @Model.Codigo</p>
+}
+
+<p><a asp-page="/Index">Voltar ao painel</a></p>

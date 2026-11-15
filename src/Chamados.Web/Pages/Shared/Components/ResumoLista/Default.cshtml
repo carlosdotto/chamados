@@ -1,0 +1,11 @@
+@model global::Chamados.Domain.EstatisticasChamados
+
+<div class="cartoes resumo-lista">
+    @foreach (var (status, quantidade) in Model.PorStatus)
+    {
+        <div class="cartao">
+            <span class="@status.ClasseSelo()">@status.Rotulo()</span>
+            <strong>@quantidade</strong>
+        </div>
+    }
+</div>

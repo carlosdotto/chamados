@@ -25,6 +25,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 var app = builder.Build();
 
 app.UseStaticFiles();
+app.UseStatusCodePagesWithReExecute("/Erro", "?codigo={0}");
 
 if (app.Environment.IsDevelopment())
 {

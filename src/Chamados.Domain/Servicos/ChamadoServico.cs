@@ -15,6 +15,27 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         return chamado;
     }
 
+    public async Task<Chamado> EditarAsync(
+        Guid id,
+        string titulo,
+        Prioridade prioridade,
+        string? descricao,
+        int versaoEsperada,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(titulo);
+
+        return await AlterarAsync(id, chamado =>
+        {
+            if (chamado.Versao != versaoEsperada)
+            {
+                throw new VersaoIncompativelException(id, chamado.Versao, versaoEsperada);
+            }
+
+            chamado.Editar(titulo, prioridade, descricao);
+        }, cancellationToken);
+    }
+
     /// <summary>Consulta um chamado. Devolve null quando o Id não existe.</summary>
     public Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
         => repositorio.ObterAsync(id, cancellationToken);
@@ -34,9 +55,12 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     {
         ArgumentNullException.ThrowIfNull(filtro);
 
+        var pagina = Math.Max(1, filtro.Pagina);
+        var tamanhoPagina = Math.Max(1, filtro.TamanhoPagina);
+
         var chamados = await repositorio.ListarAsync(cancellationToken);
 
-        return chamados
+        var itens = chamados
             .Where(c => filtro.Status is null || c.Status == filtro.Status)
             .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
             .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
@@ -44,8 +68,12 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
                         || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false))
             .OrderByDescending(c => c.Prioridade)
             .ThenBy(c => c.CriadoEm)
+            .Skip((pagina - 1) * tamanhoPagina)
+            .Take(tamanhoPagina)
             .Select(ResumoChamado.De)
             .ToList();
+
+        return itens;
     }
 
     public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)

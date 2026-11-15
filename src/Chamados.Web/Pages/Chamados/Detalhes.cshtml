@@ -13,6 +13,8 @@
     <span class="@chamado.Prioridade.ClasseSelo()">Prioridade @chamado.Prioridade.Rotulo()</span>
 </p>
 
+<p><a asp-page="./Editar" asp-route-id="@chamado.Id" class="botao">Editar chamado</a></p>
+
 <dl class="ficha">
     <dt>Descrição</dt>
     <dd>@(chamado.Descricao ?? "—")</dd>

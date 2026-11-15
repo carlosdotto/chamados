@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Chamados.Domain;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Chamados.Web.Pages.Chamados;
 
@@ -22,6 +23,9 @@ public sealed class NovoChamadoInput
     [Display(Name = "Descrição")]
     [StringLength(Chamado.TamanhoMaximoDescricao, ErrorMessage = "A descrição deve ter no máximo {1} caracteres.")]
     public string? Descricao { get; set; }
+
+    [HiddenInput]
+    public int Versao { get; set; } = 1;
 
     /// <summary>Converte o que veio da tela no comando que a camada de negócio entende.</summary>
     public NovoChamado ParaComando() => new(Titulo, Prioridade, Descricao);
