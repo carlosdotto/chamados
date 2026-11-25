@@ -13,8 +13,11 @@ public static class EndpointsChamados
             .AddEndpointFilter<FiltroExcecoesDominio>();
 
         api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto,
+                int? pagina, int? tamanhoPagina, OrdemChamados? ordem,
                 ChamadoServico servico, CancellationToken cancellationToken)
-            => servico.ListarAsync(new FiltroChamados(status, prioridadeMinima, texto), cancellationToken));
+            => servico.ListarPaginaAsync(
+                new FiltroChamados(status, prioridadeMinima, texto, pagina ?? 1, tamanhoPagina ?? 5,
+                    ordem ?? OrdemChamados.Prioridade), cancellationToken));
 
         api.MapGet("/estatisticas", (ChamadoServico servico, CancellationToken cancellationToken)
             => servico.ObterEstatisticasAsync(cancellationToken));
@@ -28,6 +31,16 @@ public static class EndpointsChamados
         {
             var chamado = await servico.AbrirAsync(comando, cancellationToken);
             return Results.Created($"/api/chamados/{chamado.Id}", ResumoChamado.De(chamado));
+        });
+
+        api.MapPut("/{id:guid}", async (Guid id, AtualizarChamadoRequest requisicao,
+                ChamadoServico servico, CancellationToken cancellationToken) =>
+        {
+            var chamado = await servico.EditarAsync(id,
+                new EdicaoChamado(requisicao.Titulo, requisicao.Prioridade, requisicao.Descricao,
+                    requisicao.VersaoEsperada),
+                cancellationToken);
+            return Results.Ok(ResumoChamado.De(chamado));
         });
 
         // Sem try/catch: o FiltroExcecoesDominio responde 404, 409 ou 400.
@@ -55,3 +68,10 @@ public sealed record ResolverRequest(string Solucao);
 
 /// <summary>Dados para cancelar um chamado.</summary>
 public sealed record CancelarRequest(string Motivo);
+
+/// <summary>Dados para atualizar um chamado com controle otimista de concorrência.</summary>
+public sealed record AtualizarChamadoRequest(
+    string Titulo,
+    Prioridade Prioridade,
+    string? Descricao,
+    int VersaoEsperada);

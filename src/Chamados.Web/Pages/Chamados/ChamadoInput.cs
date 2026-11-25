@@ -8,12 +8,12 @@ namespace Chamados.Web.Pages.Chamados;
 /// Modelo do formulário: o que a tela recebe, com as regras de validação da tela.
 /// Não é a entidade: Chamado tem setters privados e nasce já válida.
 /// </summary>
-public sealed class NovoChamadoInput
+public sealed class ChamadoInput
 {
     [Display(Name = "Título")]
     [Required(ErrorMessage = "Informe o título.")]
-    [StringLength(Chamado.TamanhoMaximoTitulo,
-        ErrorMessage = "O título deve ter no máximo {1} caracteres.")]
+    [StringLength(Chamado.TamanhoMaximoTitulo, MinimumLength = 5,
+        ErrorMessage = "O título deve ter entre {2} e {1} caracteres.")]
     public string Titulo { get; set; } = string.Empty;
 
     [Display(Name = "Prioridade")]
@@ -29,4 +29,15 @@ public sealed class NovoChamadoInput
 
     /// <summary>Converte o que veio da tela no comando que a camada de negócio entende.</summary>
     public NovoChamado ParaComando() => new(Titulo, Prioridade, Descricao);
+
+    public static ChamadoInput De(Chamado chamado) => new()
+    {
+        Titulo = chamado.Titulo,
+        Prioridade = chamado.Prioridade,
+        Descricao = chamado.Descricao,
+        Versao = chamado.Versao
+    };
+
+    public EdicaoChamado ParaEdicao(int versaoEsperada) =>
+        new(Titulo, Prioridade, Descricao, versaoEsperada);
 }

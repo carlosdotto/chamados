@@ -27,6 +27,21 @@ public static class Rotulos
         _ => prioridade.ToString()
     };
 
+    public static string Rotulo(this Enum valor) => valor switch
+    {
+        StatusChamado status => status.Rotulo(),
+        Prioridade prioridade => prioridade.Rotulo(),
+        OrdemChamados ordem => ordem switch
+        {
+            OrdemChamados.Prioridade => "Prioridade",
+            OrdemChamados.MaisRecentes => "Mais recentes",
+            OrdemChamados.MaisAntigos => "Mais antigos",
+            OrdemChamados.Titulo => "Título (A–Z)",
+            _ => ordem.ToString()
+        },
+        _ => valor.ToString()
+    };
+
     /// <summary>Classe CSS do selo, derivada do nome do enum: selo-aberto, selo-critica...</summary>
     public static string ClasseSelo(this Enum valor) => "selo selo-" + valor.ToString().ToLowerInvariant();
 
@@ -36,6 +51,16 @@ public static class Rotulos
 
     public static IEnumerable<SelectListItem> OpcoesPrioridade()
         => Enum.GetValues<Prioridade>().Select(p => new SelectListItem(p.Rotulo(), p.ToString()));
+
+    public static IEnumerable<SelectListItem> OpcoesOrdem()
+        => Enum.GetValues<OrdemChamados>().Select(ordem => new SelectListItem(ordem switch
+        {
+            OrdemChamados.Prioridade => "Prioridade (maior primeiro)",
+            OrdemChamados.MaisRecentes => "Mais recentes",
+            OrdemChamados.MaisAntigos => "Mais antigos",
+            OrdemChamados.Titulo => "Título (A–Z)",
+            _ => ordem.ToString()
+        }, ordem.ToString()));
 
     /// <summary>Duração legível: "menos de 1 min", "42 min", "3 h 05 min".</summary>
     public static string Duracao(this TimeSpan tempo) => tempo switch

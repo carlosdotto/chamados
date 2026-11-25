@@ -6,15 +6,35 @@
 
 <h1>Editar chamado</h1>
 
-<form method="post" class="formulario" novalidate asp-route-id="@Model.Id">
+<form method="post" class="formulario" asp-route-id="@Model.Id">
     <div asp-validation-summary="ModelOnly" class="erros"></div>
+
+    @if (Model.Conflito && Model.ChamadoAtual is not null)
+    {
+        <section class="aviso conflito" role="alert">
+            <h2>O chamado foi alterado em outra aba</h2>
+            <p>A versão atual é @Model.ChamadoAtual.Versao. Seus valores digitados foram preservados; revise os dados abaixo e salve novamente.</p>
+            <dl class="ficha">
+                <dt>Título atual</dt>
+                <dd>@Model.ChamadoAtual.Titulo</dd>
+                <dt>Prioridade atual</dt>
+                <dd>@Model.ChamadoAtual.Prioridade.Rotulo()</dd>
+                <dt>Descrição atual</dt>
+                <dd>@(Model.ChamadoAtual.Descricao ?? "—")</dd>
+            </dl>
+        </section>
+    }
 
     <input asp-for="Input.Versao" type="hidden" />
 
-    <partial name="_FormularioChamado" model="Model.Input" />
+    <partial name="_CamposChamado" for="Input" />
 
     <div class="acoes">
         <button type="submit">Salvar alterações</button>
         <a asp-page="./Detalhes" asp-route-id="@Model.Id">Cancelar</a>
     </div>
 </form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

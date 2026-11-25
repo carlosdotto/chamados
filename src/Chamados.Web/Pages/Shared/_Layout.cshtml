@@ -9,7 +9,9 @@
 <body>
     <header class="topo">
         <a class="marca" asp-page="/Index">Chamados</a>
+        <vc:resumo-status></vc:resumo-status>
         <nav>
+            <a href="/atendimento">Atendimento</a>
             <a asp-page="/Chamados/Index">Lista</a>
             <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
         </nav>
@@ -24,10 +26,8 @@
         @RenderBody()
     </main>
 
-    <footer class="rodape">Chamados · Módulo 4 · ASP.NET Core, Razor Pages e edição otimista</footer>
+    <footer class="rodape">Chamados · Módulo 5 · Blazor e componentes Razor</footer>
 
-    <script src="https://code.jquery.com/jquery-3.12.2.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.5/jquery.validate.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validation-unobtrusive/4.0.0/jquery.validate.unobtrusive.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

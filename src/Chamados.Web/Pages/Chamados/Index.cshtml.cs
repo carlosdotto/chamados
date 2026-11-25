@@ -7,7 +7,7 @@ namespace Chamados.Web.Pages.Chamados;
 /// <summary>Lista com filtros. O formulário de filtro usa GET: a busca fica na URL e pode ser compartilhada.</summary>
 public sealed class IndexModel(ChamadoServico servico) : PageModel
 {
-    private const int TamanhoPagina = 10;
+    private const int TamanhoPagina = 5;
 
     [BindProperty(SupportsGet = true)]
     public StatusChamado? Status { get; set; }
@@ -21,11 +21,16 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
     [BindProperty(SupportsGet = true)]
     public int Pagina { get; set; } = 1;
 
+    [BindProperty(SupportsGet = true)]
+    public OrdemChamados Ordem { get; set; } = OrdemChamados.Prioridade;
+
     public int PaginaAtual => Pagina < 1 ? 1 : Pagina;
 
     public int TotalPaginas { get; private set; } = 1;
 
     public IReadOnlyList<ResumoChamado> Chamados { get; private set; } = [];
+
+    public int TotalItens { get; private set; }
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -36,16 +41,34 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         }
 
         Pagina = PaginaAtual;
-        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Pagina, TamanhoPagina);
-        Chamados = await servico.ListarAsync(filtro, cancellationToken);
+        if (!Enum.IsDefined(Ordem))
+        {
+            Ordem = OrdemChamados.Prioridade;
+        }
 
-        if (Chamados.Count >= TamanhoPagina)
+        var resultado = await servico.ListarPaginaAsync(
+            new FiltroChamados(Status, PrioridadeMinima, Texto, Pagina, TamanhoPagina, Ordem),
+            cancellationToken);
+        TotalItens = resultado.TotalItens;
+        TotalPaginas = resultado.TotalPaginas;
+
+        if (Pagina > TotalPaginas)
         {
-            TotalPaginas = Pagina + 1;
+            Pagina = TotalPaginas;
+            resultado = await servico.ListarPaginaAsync(
+                new FiltroChamados(Status, PrioridadeMinima, Texto, Pagina, TamanhoPagina, Ordem),
+                cancellationToken);
         }
-        else
-        {
-            TotalPaginas = Math.Max(1, Pagina);
-        }
+
+        Chamados = resultado.Itens;
     }
+
+    public Dictionary<string, string?> RotaPara(int pagina) => new()
+    {
+        ["status"] = Status?.ToString(),
+        ["prioridadeMinima"] = PrioridadeMinima?.ToString(),
+        ["texto"] = Texto,
+        ["ordem"] = Ordem.ToString(),
+        ["pagina"] = pagina.ToString(System.Globalization.CultureInfo.InvariantCulture)
+    };
 }

@@ -7,9 +7,13 @@ namespace Chamados.Web.Pages.Chamados;
 public sealed class EditarModel(ChamadoServico servico) : PageModel
 {
     [BindProperty]
-    public NovoChamadoInput Input { get; set; } = new();
+    public ChamadoInput Input { get; set; } = new();
 
     public Guid Id { get; private set; }
+
+    public Chamado? ChamadoAtual { get; private set; }
+
+    public bool Conflito { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -19,14 +23,15 @@ public sealed class EditarModel(ChamadoServico servico) : PageModel
             return NotFound();
         }
 
-        Id = chamado.Id;
-        Input = new NovoChamadoInput
+        if (chamado.EstaEncerrado)
         {
-            Titulo = chamado.Titulo,
-            Prioridade = chamado.Prioridade,
-            Descricao = chamado.Descricao,
-            Versao = chamado.Versao
-        };
+            TempData["Mensagem"] = "Chamados resolvidos ou cancelados não podem ser editados.";
+            return RedirectToPage("./Detalhes", new { id });
+        }
+
+        Id = chamado.Id;
+        ChamadoAtual = chamado;
+        Input = ChamadoInput.De(chamado);
 
         return Page();
     }
@@ -40,7 +45,9 @@ public sealed class EditarModel(ChamadoServico servico) : PageModel
 
         try
         {
-            var chamado = await servico.EditarAsync(id, Input.Titulo, Input.Prioridade, Input.Descricao, Input.Versao, cancellationToken);
+            var chamado = await servico.EditarAsync(id,
+                new EdicaoChamado(Input.Titulo, Input.Prioridade, Input.Descricao, Input.Versao),
+                cancellationToken);
             TempData["Mensagem"] = $"Chamado \"{chamado.Titulo}\" atualizado.";
             return RedirectToPage("./Detalhes", new { id = chamado.Id });
         }
@@ -48,10 +55,22 @@ public sealed class EditarModel(ChamadoServico servico) : PageModel
         {
             return NotFound();
         }
-        catch (VersaoIncompativelException)
+        catch (ConcorrenciaException)
         {
-            ModelState.AddModelError(string.Empty, "Este chamado foi atualizado em outra aba. Recarregue a página e tente novamente.");
-            return await OnGetAsync(id, cancellationToken);
+            var atual = await servico.ObterAsync(id, cancellationToken);
+            if (atual is null)
+            {
+                return NotFound();
+            }
+
+            Id = atual.Id;
+            ChamadoAtual = atual;
+            Conflito = true;
+            Input.Versao = atual.Versao;
+            ModelState.Remove("Input.Versao");
+            ModelState.AddModelError(string.Empty,
+                "Este chamado foi alterado em outra aba. Confira os valores atuais e tente salvar novamente.");
+            return Page();
         }
         catch (ChamadoEncerradoException ex)
         {

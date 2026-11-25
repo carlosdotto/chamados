@@ -1,0 +1,10 @@
+@* Componente Blazor equivalente ao Tag Helper <selo> do Módulo 4. *@
+<span class="@Valor.ClasseSelo()">@Prefixo@Valor.Rotulo()</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public Enum Valor { get; set; } = default!;
+
+    [Parameter]
+    public string? Prefixo { get; set; }
+}

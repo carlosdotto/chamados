@@ -1,0 +1,18 @@
+<div class="cartao-acao contador">
+    <h2>@Titulo</h2>
+    <p class="numero">@cliques</p>
+    <button type="button" @onclick="Incrementar">Somar 1</button>
+    <p class="apoio">
+        Renderizador: <strong>@RendererInfo.Name</strong> ·
+        interativo: <strong>@(RendererInfo.IsInteractive ? "sim" : "não")</strong>
+    </p>
+</div>
+
+@code {
+    private int cliques;
+
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    private void Incrementar() => cliques++;
+}

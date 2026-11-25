@@ -29,11 +29,21 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         {
             if (chamado.Versao != versaoEsperada)
             {
-                throw new VersaoIncompativelException(id, chamado.Versao, versaoEsperada);
+                throw new ConcorrenciaException(id, versaoEsperada, chamado.Versao);
             }
 
             chamado.Editar(titulo, prioridade, descricao);
         }, cancellationToken);
+    }
+
+    public Task<Chamado> EditarAsync(
+        Guid id,
+        EdicaoChamado edicao,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(edicao);
+        return EditarAsync(id, edicao.Titulo, edicao.Prioridade, edicao.Descricao,
+            edicao.VersaoEsperada, cancellationToken);
     }
 
     /// <summary>Consulta um chamado. Devolve null quando o Id não existe.</summary>
@@ -54,26 +64,70 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filtro);
+        var chamados = await ConsultarAsync(filtro, cancellationToken);
+        return chamados.Select(ResumoChamado.De).ToList();
+    }
 
-        var pagina = Math.Max(1, filtro.Pagina);
-        var tamanhoPagina = Math.Max(1, filtro.TamanhoPagina);
+    public async Task<Pagina<ResumoChamado>> ListarPaginaAsync(
+        FiltroChamados filtro,
+        CancellationToken cancellationToken = default)
+        => await ListarPaginaAsync(filtro, Math.Max(1, filtro.Pagina),
+            filtro.TamanhoPagina, cancellationToken);
 
-        var chamados = await repositorio.ListarAsync(cancellationToken);
+    public async Task<Pagina<ResumoChamado>> ListarPaginaAsync(
+        FiltroChamados filtro,
+        int numero,
+        int tamanhoPagina,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filtro);
+        ArgumentOutOfRangeException.ThrowIfLessThan(tamanhoPagina, 1);
 
-        var itens = chamados
-            .Where(c => filtro.Status is null || c.Status == filtro.Status)
-            .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
-            .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
-                        || c.Titulo.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase)
-                        || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false))
-            .OrderByDescending(c => c.Prioridade)
-            .ThenBy(c => c.CriadoEm)
-            .Skip((pagina - 1) * tamanhoPagina)
+        var filtrados = await ConsultarAsync(filtro, cancellationToken);
+        var total = filtrados.Count;
+        var totalPaginas = total == 0 ? 1 : (total + tamanhoPagina - 1) / tamanhoPagina;
+        numero = Math.Clamp(numero, 1, totalPaginas);
+
+        var itens = filtrados
+            .Skip((numero - 1) * tamanhoPagina)
             .Take(tamanhoPagina)
             .Select(ResumoChamado.De)
             .ToList();
 
-        return itens;
+        return new Pagina<ResumoChamado>(itens, numero, tamanhoPagina, total);
+    }
+
+    private async Task<IReadOnlyList<Chamado>> ConsultarAsync(
+        FiltroChamados filtro,
+        CancellationToken cancellationToken)
+    {
+        var chamados = await repositorio.ListarAsync(cancellationToken);
+
+        var filtrados = chamados
+            .Where(c => filtro.Status is null || c.Status == filtro.Status)
+            .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
+            .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
+                        || c.Titulo.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase)
+                        || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false));
+
+        var cultura = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
+        var comparadorTitulo = StringComparer.Create(
+            cultura,
+            System.Globalization.CompareOptions.IgnoreCase |
+            System.Globalization.CompareOptions.IgnoreNonSpace);
+
+        IReadOnlyList<Chamado> ordenados = filtro.Ordem switch
+        {
+            OrdemChamados.MaisRecentes => filtrados.OrderByDescending(c => c.CriadoEm).ToList(),
+            OrdemChamados.MaisAntigos => filtrados.OrderBy(c => c.CriadoEm).ToList(),
+            OrdemChamados.Titulo => filtrados.OrderBy(c => c.Titulo, comparadorTitulo).ToList(),
+            _ => filtrados
+                .OrderByDescending(c => c.Prioridade)
+                .ThenBy(c => c.CriadoEm)
+                .ToList()
+        };
+
+        return ordenados;
     }
 
     public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)

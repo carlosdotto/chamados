@@ -146,4 +146,156 @@ public class ChamadoServicoTests
     {
         Assert.Null(await _servico.ObterAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task EditarAsync_AtualizaCamposEIncrementaVersao()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Título original"));
+
+        var atualizado = await _servico.EditarAsync(chamado.Id,
+            new EdicaoChamado("Título novo", Prioridade.Alta, "Descrição nova", chamado.Versao));
+
+        Assert.Equal("Título novo", atualizado.Titulo);
+        Assert.Equal(Prioridade.Alta, atualizado.Prioridade);
+        Assert.Equal("Descrição nova", atualizado.Descricao);
+        Assert.Equal(2, atualizado.Versao);
+    }
+
+    [Fact]
+    public async Task EditarAsync_VersaoDesatualizada_LancaConflitoComVersoes()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Título original"));
+        await _servico.IniciarAtendimentoAsync(chamado.Id, "Equipe");
+
+        var erro = await Assert.ThrowsAsync<ConcorrenciaException>(() =>
+            _servico.EditarAsync(chamado.Id,
+                new EdicaoChamado("Tentativa concorrente", Prioridade.Media, null, 1)));
+
+        Assert.Equal(2, erro.VersaoAtual);
+        Assert.Equal(1, erro.VersaoEsperada);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_DevolveTotalFiltradoIndependentementeDaPagina()
+    {
+        for (var i = 0; i < 7; i++)
+        {
+            await _servico.AbrirAsync(new NovoChamado($"Chamado {i}", Prioridade.Media, "Sala A"));
+        }
+
+        await _servico.AbrirAsync(new NovoChamado("Outro", Prioridade.Media, "Sala B"));
+
+        var resultado = await _servico.ListarPaginaAsync(
+            new FiltroChamados(Texto: "sala a", Pagina: 2, TamanhoPagina: 3));
+
+        Assert.Equal(7, resultado.TotalItens);
+        Assert.Equal(3, resultado.TotalPaginas);
+        Assert.Equal(2, resultado.Numero);
+        Assert.Equal(3, resultado.Itens.Count);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_OrdenaTituloComCulturaBrasileira()
+    {
+        await _servico.AbrirAsync(new NovoChamado("Zebra"));
+        await _servico.AbrirAsync(new NovoChamado("Bala"));
+        await _servico.AbrirAsync(new NovoChamado("Árvore"));
+
+        var resultado = await _servico.ListarPaginaAsync(
+            new FiltroChamados(TamanhoPagina: 5, Ordem: OrdemChamados.Titulo));
+
+        Assert.Equal(new[] { "Árvore", "Bala", "Zebra" }, resultado.Itens.Select(item => item.Titulo));
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_UsaNumeroDaPaginaRecalculadoQuandoExcedeTotal()
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            await _servico.AbrirAsync(new NovoChamado($"Chamado {i}", Prioridade.Media));
+        }
+
+        var resultado = await _servico.ListarPaginaAsync(FiltroChamados.Todos, 99, 5);
+
+        Assert.Equal(2, resultado.Numero);
+        Assert.Single(resultado.Itens);
+        Assert.Equal(2, resultado.TotalPaginas);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_Pagina0VoltaParaPrimeira()
+    {
+        await _servico.AbrirAsync(new NovoChamado("Chamado"));
+
+        var resultado = await _servico.ListarPaginaAsync(FiltroChamados.Todos, 0, 5);
+
+        Assert.Equal(1, resultado.Numero);
+        Assert.Single(resultado.Itens);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_TamanhoMenorQue1_LancaErro()
+    {
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => _servico.ListarPaginaAsync(FiltroChamados.Todos, 1, 0));
+    }
+
+    [Fact]
+    public async Task ListarAsync_NaoPerdeItensPorPaginacao()
+    {
+        for (var i = 0; i < 12; i++)
+        {
+            await _servico.AbrirAsync(new NovoChamado($"Chamado {i}", Prioridade.Media));
+        }
+
+        var resultado = await _servico.ListarAsync(FiltroChamados.Todos);
+
+        Assert.Equal(12, resultado.Count);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_OrdenaMaisRecentesPrimeiro()
+    {
+        var primeiro = await _servico.AbrirAsync(new NovoChamado("Primeiro"));
+        _relogio.Avancar(TimeSpan.FromMinutes(1));
+        await _servico.AbrirAsync(new NovoChamado("Segundo"));
+
+        var resultado = await _servico.ListarPaginaAsync(
+            new FiltroChamados(Ordem: OrdemChamados.MaisRecentes), 1, 5);
+
+        Assert.Equal("Segundo", resultado.Itens[0].Titulo);
+        Assert.Equal(primeiro.Titulo, resultado.Itens[1].Titulo);
+    }
+
+    [Fact]
+    public async Task ListarPaginaAsync_OrdenaMaisAntigosPrimeiro()
+    {
+        await _servico.AbrirAsync(new NovoChamado("Primeiro"));
+        _relogio.Avancar(TimeSpan.FromMinutes(1));
+        await _servico.AbrirAsync(new NovoChamado("Segundo"));
+
+        var resultado = await _servico.ListarPaginaAsync(
+            new FiltroChamados(Ordem: OrdemChamados.MaisAntigos), 1, 5);
+
+        Assert.Equal("Primeiro", resultado.Itens[0].Titulo);
+        Assert.Equal("Segundo", resultado.Itens[1].Titulo);
+    }
+
+    [Fact]
+    public async Task Pagina_SemItens_ContinuaComUmaPaginaVazia()
+    {
+        var resultado = await _servico.ListarPaginaAsync(FiltroChamados.Todos, 1, 5);
+
+        Assert.Equal(1, resultado.TotalPaginas);
+        Assert.False(resultado.TemAnterior);
+        Assert.False(resultado.TemProxima);
+    }
+
+    [Fact]
+    public async Task FiltroChamados_AceitaOrdemNoQuartoParametro()
+    {
+        var filtro = new FiltroChamados(null, null, null, OrdemChamados.Titulo);
+
+        Assert.Equal(OrdemChamados.Titulo, filtro.Ordem);
+    }
 }

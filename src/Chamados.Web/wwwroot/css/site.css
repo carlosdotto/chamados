@@ -31,6 +31,8 @@ h2 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
 .topo .marca { color: #fff; font-weight: 700; font-size: 1.15rem; text-decoration: none; }
 .topo nav { display: flex; align-items: center; gap: 1rem; }
 .topo nav a { color: #e6e1ff; }
+.topo .resumo-status { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.topo .resumo-status span { color: #fff; white-space: nowrap; }
 .conteudo { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
 .rodape { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; color: var(--apoio); font-size: .85rem; }
 
@@ -62,6 +64,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outl
 .validation-summary-valid { display: none; }
 
 .aviso { padding: .75rem 1rem; background: #e7f6ee; color: var(--ok); border-left: 4px solid var(--ok); border-radius: 4px; }
+.aviso.conflito { background: #fff1db; color: var(--laranja); border-left-color: var(--laranja); }
 
 /* ---------- lista ---------- */
 .filtros { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin: 1rem 0; }
@@ -71,6 +74,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outl
 .tabela th, .tabela td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--linha); }
 .tabela td:last-child { white-space: nowrap; }
 .tabela th { background: #ece8df; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+.paginacao { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; margin: 1rem 0; }
 
 /* ---------- selos ---------- */
 .selo { display: inline-block; white-space: nowrap; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 600; background: #ece8df; }
@@ -95,3 +99,22 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outl
 .cartao-acao h2 { margin: 0; }
 .historico { padding-left: 1.25rem; }
 .historico time { color: var(--apoio); margin-right: .5rem; font-variant-numeric: tabular-nums; }
+
+/* ---------- Módulo 5 · Blazor ---------- */
+.topo nav a.active { color: #fff; font-weight: 700; text-decoration: none; border-bottom: 2px solid #b8a6ff; }
+.barra-fila { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin: 1rem 0; }
+.barra-fila label { display: grid; gap: .2rem; font-size: .9rem; font-weight: 600; }
+.barra-fila .crescer { flex: 1; min-width: 220px; }
+.fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; align-items: start; }
+.coluna { display: grid; gap: .75rem; padding: 1rem; background: #ece8df; border-radius: 10px; }
+.coluna > header { display: flex; align-items: center; justify-content: space-between; }
+.coluna h2 { margin: 0; }
+.contagem { min-width: 2rem; padding: .1rem .6rem; border-radius: 999px; background: var(--tinta); color: #fff; font-weight: 700; text-align: center; }
+.cartao-fila { display: grid; gap: .5rem; padding: .9rem 1rem; background: var(--papel); border: 1px solid var(--linha); border-radius: 8px; }
+.cartao-fila > header { display: flex; align-items: start; justify-content: space-between; gap: .75rem; }
+.cartao-fila > header a { font-weight: 600; }
+.cartao-fila p { margin: 0; font-size: .9rem; }
+.cartao-fila label { display: grid; gap: .2rem; font-size: .9rem; font-weight: 600; }
+.aviso-erro { padding: .75rem 1rem; background: #fdecea; color: var(--erro); border-left: 4px solid var(--erro); border-radius: 4px; }
+.contador .numero { font-size: 3rem; font-weight: 800; color: var(--roxo); margin: 0; line-height: 1; }
+#blazor-error-ui { display: none; position: fixed; inset: auto 0 0 0; padding: .75rem 1.5rem; background: #fdecea; color: var(--erro); border-top: 2px solid var(--erro); z-index: 1000; }

@@ -19,13 +19,23 @@ builder.Services.AddSingleton<IChamadoRepositorio>(services =>
         services.GetRequiredService<TimeProvider>(),
         TimeSpan.FromMilliseconds(services.GetRequiredService<IOptions<SimulacaoOptions>>().Value.LatenciaMs)));
 builder.Services.AddScoped<ChamadoServico>();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
 
 app.UseStaticFiles();
-app.UseStatusCodePagesWithReExecute("/Erro", "?codigo={0}");
+app.UseRouting();
+app.UseAntiforgery();
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api"),
+    branch =>
+    {
+    branch.UseExceptionHandler("/Erro/500");
+    branch.UseStatusCodePagesWithReExecute("/Erro/{0}");
+    });
 
 if (app.Environment.IsDevelopment())
 {
@@ -36,6 +46,8 @@ app.MapGet("/status", () => Enum.GetNames<StatusChamado>());
 app.MapGet("/chamados/exemplo", () => new Chamado("Trocar lâmpada do corredor"));
 app.MapApiChamados();
 app.MapRazorPages();
+app.MapRazorComponents<Chamados.Web.Components.App>()
+    .AddInteractiveServerRenderMode();
 
 if (app.Environment.IsDevelopment())
 {

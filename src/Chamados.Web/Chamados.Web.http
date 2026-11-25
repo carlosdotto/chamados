@@ -1,11 +1,16 @@
 # Requisições da API JSON. As páginas (formulários) são testadas no navegador.
 @base = http://localhost:5080
+@id = 00000000-0000-0000-0000-000000000000
+@idParaCancelar = 00000000-0000-0000-0000-000000000000
 
-### Lista todos, ordenados por prioridade
+### Lista paginada, ordenada por prioridade
 GET {{base}}/api/chamados
 
 ### Filtros combinados
 GET {{base}}/api/chamados?status=Aberto&prioridadeMinima=Alta
+
+### Segunda página, por título em ordem brasileira
+GET {{base}}/api/chamados?pagina=2&tamanhoPagina=5&ordem=Titulo
 
 ### Estatísticas
 GET {{base}}/api/chamados/estatisticas
@@ -19,6 +24,28 @@ Content-Type: application/json
   "prioridade": "Alta"
 }
 
+### Atualiza um chamado (use a versão retornada pela listagem/consulta)
+PUT {{base}}/api/chamados/{{id}}
+Content-Type: application/json
+
+{
+  "titulo": "Chamado atualizado pela API",
+  "prioridade": "Alta",
+  "descricao": "Descrição atualizada",
+  "versaoEsperada": 1
+}
+
+### Versão incompatível: conflito 409
+PUT {{base}}/api/chamados/{{id}}
+Content-Type: application/json
+
+{
+  "titulo": "Edição concorrente",
+  "prioridade": "Media",
+  "descricao": null,
+  "versaoEsperada": 0
+}
+
 ### Prioridade inexistente: o domínio recusa e o filtro responde 400 (Problem Details)
 POST {{base}}/api/chamados
 Content-Type: application/json
@@ -29,7 +56,6 @@ Content-Type: application/json
 }
 
 ### Inicia atendimento: copie um Id com status Aberto da listagem
-@id = 00000000-0000-0000-0000-000000000000
 POST {{base}}/api/chamados/{{id}}/atendimento
 Content-Type: application/json
 
@@ -46,7 +72,6 @@ Content-Type: application/json
 }
 
 ### Cancela outro chamado ainda aberto: copie um Id diferente com status Aberto
-@idParaCancelar = 00000000-0000-0000-0000-000000000000
 POST {{base}}/api/chamados/{{idParaCancelar}}/cancelamento
 Content-Type: application/json
 

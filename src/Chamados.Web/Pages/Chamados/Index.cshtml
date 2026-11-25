@@ -23,6 +23,10 @@
         Texto
         <input asp-for="Texto" type="search" placeholder="título ou descrição" />
     </label>
+    <label>
+        Ordenar por
+        <select asp-for="Ordem" asp-items="Rotulos.OpcoesOrdem()"></select>
+    </label>
     <button type="submit">Filtrar</button>
     <a asp-page="./Index">Limpar</a>
 </form>
@@ -45,7 +49,7 @@ else
                 <tr>
                     <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
                     <td><span class="@chamado.Prioridade.ClasseSelo()">@chamado.Prioridade.Rotulo()</span></td>
-                    <td><status-badge status="@chamado.Status"></status-badge></td>
+                    <td><selo valor="@chamado.Status"></selo></td>
                     <td>@(chamado.Responsavel ?? "—")</td>
                     <td>@chamado.CriadoEm.DataHora()</td>
                     <td><a asp-page="./Editar" asp-route-id="@chamado.Id">Editar</a></td>
@@ -58,17 +62,14 @@ else
 @if (Model.TotalPaginas > 1)
 {
     <nav class="paginacao" aria-label="Paginação">
-        @for (var pagina = 1; pagina <= Model.TotalPaginas; pagina++)
+        @if (Model.PaginaAtual > 1)
         {
-            var paginaAtual = pagina == Model.PaginaAtual;
-            <a asp-page="./Index"
-               asp-route-status="@Model.Status"
-               asp-route-prioridadeMinima="@Model.PrioridadeMinima"
-               asp-route-texto="@Model.Texto"
-               asp-route-pagina="@pagina"
-               class="@(paginaAtual ? "atual" : null)">
-                @pagina
-            </a>
+            <a asp-page="./Index" asp-all-route-data="@Model.RotaPara(Model.PaginaAtual - 1)">Anterior</a>
+        }
+        <span>Página @Model.PaginaAtual de @Model.TotalPaginas (@Model.TotalItens chamados)</span>
+        @if (Model.PaginaAtual < Model.TotalPaginas)
+        {
+            <a asp-page="./Index" asp-all-route-data="@Model.RotaPara(Model.PaginaAtual + 1)">Próxima</a>
         }
     </nav>
 }

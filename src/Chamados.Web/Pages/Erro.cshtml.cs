@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -14,23 +15,29 @@ public sealed class ErroModel : PageModel
 {
     public string CodigoRequisicao { get; private set; } = string.Empty;
 
-    public int? Codigo { get; private set; }
+    public int Codigo { get; private set; }
 
-    public string Mensagem { get; private set; } = "Houve um problema ao processar sua solicitação.";
+    public string? CaminhoOriginal { get; private set; }
+
+    public string Titulo => Codigo switch
+    {
+        404 => "Página não encontrada",
+        400 => "Requisição inválida",
+        _ => "Algo deu errado"
+    };
+
+    public string Mensagem => Codigo switch
+    {
+        404 => "O endereço não existe ou o chamado foi digitado errado. Volte à lista e procure por lá.",
+        400 => "Não foi possível processar o envio. Recarregue a página e tente de novo.",
+        _ => "Não foi possível concluir a operação. Tente novamente em instantes."
+    };
 
     public void OnGet(int? codigo)
     {
-        Codigo = codigo;
-        if (Codigo is 404)
-        {
-            Mensagem = "A página ou recurso solicitado não foi encontrado.";
-        }
-        else if (Codigo is 500)
-        {
-            Mensagem = "O servidor encontrou um erro ao processar a solicitação.";
-        }
-
+        Codigo = codigo ?? 500;
         CodigoRequisicao = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+        CaminhoOriginal = HttpContext.Features.Get<IStatusCodeReExecuteFeature>()?.OriginalPath;
     }
 
     public void OnPost(int? codigo) => OnGet(codigo);

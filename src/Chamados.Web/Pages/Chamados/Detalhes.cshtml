@@ -9,8 +9,8 @@
 
 <h1>@chamado.Titulo</h1>
 <p class="selos">
-    <span class="@chamado.Status.ClasseSelo()">@chamado.Status.Rotulo()</span>
-    <span class="@chamado.Prioridade.ClasseSelo()">Prioridade @chamado.Prioridade.Rotulo()</span>
+    <selo valor="@chamado.Status"></selo>
+    <selo valor="@chamado.Prioridade"></selo>
 </p>
 
 <p><a asp-page="./Editar" asp-route-id="@chamado.Id" class="botao">Editar chamado</a></p>

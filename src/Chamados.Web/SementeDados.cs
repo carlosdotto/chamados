@@ -41,5 +41,21 @@ public static class SementeDados
         await servico.AbrirAsync(
             new NovoChamado("Tomada solta na recepção", Prioridade.Alta),
             cancellationToken);
+
+        var exemplos = new[]
+        {
+            new NovoChamado("Computador não liga na sala 12", Prioridade.Alta, "Equipamento da estação 4"),
+            new NovoChamado("Pintura descascando na escada", Prioridade.Baixa),
+            new NovoChamado("Rede wi-fi instável no laboratório", Prioridade.Critica),
+            new NovoChamado("Cadeira quebrada na sala 108", Prioridade.Media),
+            new NovoChamado("Impressora sem papel no financeiro", Prioridade.Baixa),
+            new NovoChamado("Luz piscando no corredor B", Prioridade.Media),
+            new NovoChamado("Porta com fechadura emperrada", Prioridade.Alta)
+        };
+
+        foreach (var exemplo in exemplos)
+        {
+            await servico.AbrirAsync(exemplo, cancellationToken);
+        }
     }
 }

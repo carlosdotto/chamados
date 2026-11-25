@@ -14,4 +14,17 @@ public sealed class StatusChamadoTagHelper : TagHelper
         output.Attributes.SetAttribute("class", $"selo selo-{Status.ToString().ToLowerInvariant()}");
         output.Content.SetContent(Status.Rotulo());
     }
+
+    [HtmlTargetElement("selo", Attributes = "valor")]
+    public sealed class SeloTagHelper : TagHelper
+    {
+        public Enum Valor { get; set; } = null!;
+
+        public override void Process(TagHelperContext context, TagHelperOutput output)
+        {
+            output.TagName = "span";
+            output.Attributes.SetAttribute("class", Valor.ClasseSelo());
+            output.Content.SetContent(Valor.Rotulo());
+        }
+    }
 }
